@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 
 import com.oasisfeng.android.databinding.ObservableSortedList;
 import com.oasisfeng.common.app.BaseAppViewModel;
+import com.oasisfeng.island.data.ForeignProfiles;
 import com.oasisfeng.island.data.IslandAppInfo;
 import com.oasisfeng.island.data.IslandAppListProvider;
 import com.oasisfeng.island.mobile.BuildConfig;
@@ -47,11 +48,12 @@ public class AppViewModel extends BaseAppViewModel implements ObservableSortedLi
 		else if (! app.enabled) status.append(context.getString(R.string.status_disabled));
 		else if (app.isHidden()) status.append(context.getString(R.string.status_frozen));
 		else status.append(context.getString(R.string.status_alive));
-		final boolean exclusive = IslandAppListProvider.getInstance(context).isExclusive(app);
+		final boolean foreign = app.isInForeignProfile(), exclusive = ! foreign && IslandAppListProvider.getInstance(context).isExclusive(app);
 		final StringBuilder appendixes = new StringBuilder();
 		if (isSystem()) appendixes.append(", ").append(context.getString(R.string.status_appendix_system));
 		if (app.isCritical()) appendixes.append(", ").append(context.getString(R.string.status_appendix_critical));
-		if (Users.isOwner(app.user)) {
+		if (foreign) appendixes.append(", ").append(ForeignProfiles.getManagedByText(context, app.user));
+		else if (Users.isOwner(app.user)) {
 			if (! exclusive) appendixes.append(", ").append(context.getString(R.string.status_appendix_cloned));
 		} else if (exclusive) appendixes.append(", ").append(context.getString(R.string.status_appendix_exclusive));
 		if (BuildConfig.DEBUG && app.isSuspended()) appendixes.append(", suspended");     // TODO

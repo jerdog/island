@@ -1,7 +1,9 @@
 package com.oasisfeng.island.featured;
 
 import android.app.Application;
+import android.app.admin.DevicePolicyManager;
 import android.content.Context;
+import android.content.Intent;
 import android.provider.Settings;
 
 import androidx.annotation.DrawableRes;
@@ -29,6 +31,7 @@ import com.oasisfeng.island.mobile.R;
 import com.oasisfeng.island.mobile.databinding.FeaturedEntryBinding;
 import com.oasisfeng.island.settings.IslandSettingsFragment;
 import com.oasisfeng.island.settings.SettingsActivity;
+import com.oasisfeng.island.setup.SetupActivity;
 import com.oasisfeng.island.util.DevicePolicies;
 import com.oasisfeng.island.util.Permissions;
 import com.oasisfeng.island.util.Users;
@@ -41,6 +44,7 @@ import java.util.function.Consumer;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.os.UserManager.DISALLOW_DEBUGGING_FEATURES;
 import static androidx.lifecycle.Transformations.map;
 import static androidx.recyclerview.widget.ItemTouchHelper.END;
@@ -85,6 +89,15 @@ public class FeaturedListViewModel extends AndroidViewModel {
 		final boolean is_mainland_owner = policies.isProfileOrDeviceOwnerOnCallingUser(), has_profile = Users.hasProfile();
 		features.beginBatchedUpdates();
 		features.clear();
+
+		if (SHOW_ALL || ! has_profile && ! is_mainland_owner && ! Users.getForeignProfiles().isEmpty()) {	// Only work profile managed by others (e.g. MDM)
+			final DevicePolicyManager dpm = activity.getSystemService(DevicePolicyManager.class);
+			if (dpm != null && dpm.isProvisioningAllowed(ACTION_PROVISION_MANAGED_PROFILE))
+				addFeature(app, "setup_island", R.string.featured_setup_island_title, R.string.featured_setup_island_description, 0,
+						R.string.featured_button_setup, c -> activity.startActivity(new Intent(activity, SetupActivity.class)));
+			else addFeature(app, "setup_island_blocked", R.string.featured_setup_island_blocked_title, R.string.featured_setup_island_blocked_description, 0,
+					R.string.action_learn_more, c -> WebContent.view(c, Config.URL_FAQ.get()));
+		}
 
 		if (SHOW_ALL || IslandFiles.isCompatible(activity)) {
 			final boolean has_across_users_permission = Permissions.has(activity, Permissions.INTERACT_ACROSS_USERS);

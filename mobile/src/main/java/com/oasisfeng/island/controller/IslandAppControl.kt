@@ -54,7 +54,7 @@ object IslandAppControl {
 	@JvmStatic fun launch(context: Context, app: IslandAppInfo) {
 		analytics().event("action_launch").with(ITEM_ID, app.packageName).send()
 
-		if (app.isHidden) unfreezeAndLaunch(context, app)
+		if (app.isHidden && ! app.isInForeignProfile) unfreezeAndLaunch(context, app)     // Never shuttle to profile not managed by Island
 		else if (! IslandManager.launchApp(context, app.packageName, app.user))      // Not frozen, launch the app directly. TODO: If isBlocked() ?
 			Toast.makeText(context, context.getString(R.string.toast_app_launch_failure, app.label), Toast.LENGTH_SHORT).show()
 	}

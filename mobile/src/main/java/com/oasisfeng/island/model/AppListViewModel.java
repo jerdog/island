@@ -156,7 +156,7 @@ public class AppListViewModel extends BaseAppListViewModel<AppViewModel> {
 		final AppViewModel selected = mSelection.getValue();
 		clearSelection();
 
-		IslandAppInfo.cacheLaunchableApps(requireNonNull(mAppListProvider.getContext()));	// Performance optimization
+		IslandAppInfo.cacheLaunchableApps(requireNonNull(mAppListProvider.getContext()), profile);	// Performance optimization
 		final List<AppViewModel> apps = mAppListProvider.installedApps(profile).filter(filters).map(AppViewModel::new).collect(toList());
 		IslandAppInfo.invalidateLaunchableAppsCache();
 		replaceApps(apps);
@@ -176,8 +176,8 @@ public class AppListViewModel extends BaseAppListViewModel<AppViewModel> {
 		mFilterShared = IslandAppListProvider.excludeSelf(app);
 
 		final UserHandle user = savedState.get(Intent.EXTRA_USER);
-		setCurrentProfile(user != null && (Users.isOwner(user) || Users.isProfileManagedByIsland(user)) ? user
-				: Users.profile != null ? Users.profile : Users.owner);
+		setCurrentProfile(user != null && (Users.isOwner(user) || Users.isProfileManagedByIsland(user) || Users.isForeignProfile(user)) ? user
+				: Users.profile != null ? Users.profile : ! Users.getForeignProfiles().isEmpty() ? Users.getForeignProfiles().get(0) : Users.owner);
 
 		final String filter_text = getQueryText().getValue();
 		if (! TextUtils.isEmpty(filter_text)) onQueryTextSubmit(filter_text);
@@ -199,10 +199,10 @@ public class AppListViewModel extends BaseAppListViewModel<AppViewModel> {
 			final Object tag = tab.getTag();
 			if (tag instanceof UserHandle) {
 				final UserHandle profile = (UserHandle) tag;
-				if (Users.isProfileManagedByIsland(profile)) {
+				if (Users.isProfileManagedByIsland(profile) || Users.isForeignProfile(profile)) {
 					setCurrentProfile(profile);
 					updateAppList();
-					Analytics.log(TAG, "tab-island-" + UserHandles.getIdentifier(profile));
+					Analytics.log(TAG, (Users.isForeignProfile(profile) ? "tab-foreign-" : "tab-island-") + UserHandles.getIdentifier(profile));
 					return;
 				} else tabs.removeTab(tab);     // In case it is removed elsewhere (e.g. by ADB shell)
 			}
@@ -213,26 +213,33 @@ public class AppListViewModel extends BaseAppListViewModel<AppViewModel> {
 		Analytics.log(TAG, "tab-mainland");
 	}
 
+	/** Apps in foreign profile are only visible when the profile is available (not in quiet mode). */
+	void onForeignProfileStateChanged(final UserHandle profile) {
+		mAppListProvider.invalidateForeignProfile(profile);
+		if (profile.equals(getCurrentProfile())) updateAppList();
+	}
+
 	public void updateActions(final Menu menu) {
 		final AppViewModel selection = mSelection.getValue();
 		if (selection == null) return;
 		final IslandAppInfo app = selection.info();
 		Analytics.$().trace("app", app.packageName).trace("user", Users.toId(app.user)).trace("hidden", app.isHidden())
 				.trace("system", app.isSystem()).trace("critical", app.isCritical());
-		final boolean exclusive = mAppListProvider.isExclusive(app);
+		final boolean exclusive = ! app.isInForeignProfile() && mAppListProvider.isExclusive(app);
 		final boolean system = app.isSystem(), installed = app.isInstalled(), placeholder = app.isPlaceHolder(),
-				in_owner = Users.isOwner(app.user), is_managed = in_owner ? mOwnerUserManaged : Users.isProfileManagedByIsland(app.user);
-		menu.findItem(R.id.menu_clone).setVisible(! placeholder && Users.hasProfile());
+				in_owner = Users.isOwner(app.user), is_managed = in_owner ? mOwnerUserManaged : Users.isProfileManagedByIsland(app.user),
+				foreign = app.isInForeignProfile();		// Only "launch" and "app settings" for apps in profile not managed by Island
+		menu.findItem(R.id.menu_clone).setVisible(! placeholder && Users.hasProfile() && ! foreign);
 		menu.findItem(R.id.menu_freeze).setVisible(installed && is_managed && ! app.isHidden() && app.enabled);
 		menu.findItem(R.id.menu_unfreeze).setVisible(installed && is_managed && app.isHidden());
-		menu.findItem(R.id.menu_reinstall).setVisible(! installed && ! placeholder);
+		menu.findItem(R.id.menu_reinstall).setVisible(! installed && ! placeholder && ! foreign);
 		menu.findItem(R.id.menu_app_settings).setVisible(! placeholder);
-		menu.findItem(R.id.menu_remove).setVisible(installed && (exclusive ? system : (! system || app.shouldShowAsEnabled())));	// Disabled system app is treated as "removed".
-		menu.findItem(R.id.menu_uninstall).setVisible(installed && exclusive && ! system);	// "Uninstall" for exclusive user app, "Remove" for exclusive system app.
+		menu.findItem(R.id.menu_remove).setVisible(installed && ! foreign && (exclusive ? system : (! system || app.shouldShowAsEnabled())));	// Disabled system app is treated as "removed".
+		menu.findItem(R.id.menu_uninstall).setVisible(installed && ! foreign && exclusive && ! system);	// "Uninstall" for exclusive user app, "Remove" for exclusive system app.
 		menu.findItem(R.id.menu_shortcut).setVisible(installed && is_managed && app.isLaunchable() && app.enabled);
 		menu.findItem(R.id.menu_greenify).setVisible(installed && is_managed && app.enabled);
 
-		if (BuildConfig.DEBUG) menu.findItem(R.id.menu_suspend).setVisible(! placeholder).setTitle(app.isSuspended() ? "Unsuspend" : "Suspend");
+		if (BuildConfig.DEBUG) menu.findItem(R.id.menu_suspend).setVisible(! placeholder && ! foreign).setTitle(app.isSuspended() ? "Unsuspend" : "Suspend");
 	}
 
 	public void onPackagesUpdate(final Collection<IslandAppInfo> apps, final Menu menu) {
@@ -285,7 +292,8 @@ public class AppListViewModel extends BaseAppListViewModel<AppViewModel> {
 				clearSelection();
 			}
 		} else if (id == R.id.menu_app_settings) {
-			IslandAppControl.launchExternalAppSettings(this, app);
+			if (app.isInForeignProfile()) IslandAppControl.launchSystemAppSettings(app);	// The app info in module "installer" works only in Island.
+			else IslandAppControl.launchExternalAppSettings(this, app);
 		} else if (id == R.id.menu_remove || id == R.id.menu_uninstall) {
 			IslandAppControl.requestRemoval(requireNonNull(Activities.findActivityFrom(context)), selection.info());
 		} else if (id == R.id.menu_reinstall) {

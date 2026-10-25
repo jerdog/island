@@ -27,6 +27,7 @@ import com.oasisfeng.android.os.UserHandles;
 import com.oasisfeng.android.ui.WebContent;
 import com.oasisfeng.island.Config;
 import com.oasisfeng.island.analytics.Analytics;
+import com.oasisfeng.island.data.ForeignProfiles;
 import com.oasisfeng.island.engine.IslandManager;
 import com.oasisfeng.island.mobile.BuildConfig;
 import com.oasisfeng.island.mobile.R;
@@ -93,7 +94,7 @@ public class SetupViewModel implements Parcelable {
 			if (owner == null || ! owner.isPresent()) continue;
 			final ComponentName profile_owner = owner.get();
 			if (! Modules.MODULE_ENGINE.equals(profile_owner.getPackageName())) {
-				final CharSequence label = readOwnerLabel(context, profile_owner);
+				final CharSequence label = DevicePolicies.getOwnerLabel(context, profile_owner);
 				reason("existent_work_profile").with(ITEM_ID, profile_owner.getPackageName()).with(ITEM_NAME, label != null ? label.toString() : null).send();
 				continue;
 			}
@@ -106,6 +107,15 @@ public class SetupViewModel implements Parcelable {
 		if (dpm != null && dpm.isProvisioningAllowed(DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE))
 			Analytics.$().event("device_provision_allowed").send();	// Special analytics
 		if (dpm != null && dpm.isProvisioningAllowed(ACTION_PROVISION_MANAGED_PROFILE)) return null;
+
+		if (! Users.getForeignProfiles().isEmpty()) {	// Android allows only one managed profile in most cases.
+			final CharSequence owner_label = ForeignProfiles.getOwnerLabel(context, Users.getForeignProfiles().get(0));
+			final SetupViewModel error = buildErrorVM(R.string.setup_error_existent_work_profile,
+					reason("foreign_work_profile").with(ITEM_NAME, owner_label != null ? owner_label.toString() : null));
+			error.message_params = new String[] { owner_label != null ? owner_label.toString() : context.getString(R.string.setup_error_existent_work_profile_unknown_owner) };
+			error.action_extra = 0;		// Disable the manual-setup prompt, because profile of others cannot be removed or taken over by 3rd-party.
+			return error;
+		}
 
 		final boolean has_managed_users = pm.hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS);
 		if (! has_managed_users)
@@ -206,19 +216,6 @@ public class SetupViewModel implements Parcelable {
 		return new Intent(DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE)
 				.putExtra(DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME, DeviceAdmins.getComponentName(fragment.getContext()))
 				.putExtra(DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION, true);		// Actually works on Android 7+.
-	}
-
-	private static CharSequence readOwnerLabel(final Context context, final ComponentName owner) {
-		final PackageManager pm = context.getPackageManager();
-		try {
-			return pm.getReceiverInfo(owner, PackageManager.MATCH_UNINSTALLED_PACKAGES).loadLabel(pm);	// It should be a BroadcastReceiver
-		} catch (final PackageManager.NameNotFoundException e) {
-			try {
-				return pm.getApplicationInfo(owner.getPackageName(), PackageManager.MATCH_UNINSTALLED_PACKAGES).loadLabel(pm);    // If not, use app label
-			} catch (final PackageManager.NameNotFoundException ex) {
-				return null;
-			}
-		}
 	}
 
 	SetupViewModel() {}

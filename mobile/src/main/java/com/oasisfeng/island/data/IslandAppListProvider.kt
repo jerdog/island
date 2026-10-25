@@ -68,11 +68,11 @@ class IslandAppListProvider : AppListProvider<IslandAppInfo>() {
 
 	override fun onAppLabelUpdate(pkg: String, label: String) {
 		super.onAppLabelUpdate(pkg, label)
-		Users.getProfilesManagedByIsland().forEach { profile ->
+		(Users.getProfilesManagedByIsland() + Users.getForeignProfiles()).forEach { profile ->
 			val appsInProfile = mIslandAppMap[profile] ?: return@forEach
 			val entry = appsInProfile[pkg] ?: return@forEach
 			Log.d(TAG, "Label updated for $pkg in profile $profile: $label")
-			val newEntry = IslandAppInfo(this, Users.profile, entry, null)
+			val newEntry = IslandAppInfo(this, profile, entry, null)
 			appsInProfile[pkg] = newEntry
 			notifyUpdate(setOf(newEntry))
 		}
@@ -82,9 +82,10 @@ class IslandAppListProvider : AppListProvider<IslandAppInfo>() {
 		return if (Users.isOwner(profile)) installedAppsInOwnerUser() else loadAppsInProfileIfNotYet(profile).values.stream()
 	}
 
-	private fun loadAppsInProfileIfNotYet(profile: UserHandle): Map<String, IslandAppInfo>
-			= if (! Users.isProfileManagedByIsland(profile)) emptyMap()
-			else mIslandAppMap.getOrPut(profile) { ArrayMap<String, IslandAppInfo>().apply { refresh(this, profile) }}
+	private fun loadAppsInProfileIfNotYet(profile: UserHandle): Map<String, IslandAppInfo> = when {
+		Users.isProfileManagedByIsland(profile) -> mIslandAppMap.getOrPut(profile) { ArrayMap<String, IslandAppInfo>().apply { refresh(this, profile) }}
+		Users.isForeignProfile(profile) -> mIslandAppMap.getOrPut(profile) { ArrayMap<String, IslandAppInfo>().apply { refreshForeign(this, profile) }}
+		else -> emptyMap() }
 
 	private fun initializeMonitor() {
 		Log.d(TAG, "Initializing monitor...")
@@ -99,6 +100,14 @@ class IslandAppListProvider : AppListProvider<IslandAppInfo>() {
 			}
 		}, IntentFilter(Intent.ACTION_MANAGED_PROFILE_REMOVED))
 
+		context().registerReceiver(object : BroadcastReceiver() {
+			override fun onReceive(context: Context, intent: Intent) {
+				val profile = intent.getParcelableExtra<UserHandle>(EXTRA_USER)?.takeIf { Users.isForeignProfile(it) } ?: return
+				Log.i(TAG, "Foreign profile ${profile.toId()} ${intent.action}")
+				invalidateForeignProfile(profile)
+			}
+		}, IntentFilter(Intent.ACTION_MANAGED_PROFILE_AVAILABLE).apply { addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE) })
+
 		mClonedHiddenSystemApps.migrateIfNeeded()
 	}
 
@@ -109,6 +118,28 @@ class IslandAppListProvider : AppListProvider<IslandAppInfo>() {
 			visible[pkg] ?: la.getAppInfo(pkg, MATCH_UNINSTALLED_PACKAGES, profile)?.takeIf { it.installed }}
 				.forEach { info -> outApps[info.packageName] = IslandAppInfo(this, profile, info, null) }
 		Log.d(TAG, "Refreshed apps in Island ${profile.toId()}")
+	}
+
+	/** Launcher activities in foreign profile are not visible in quiet mode, reload on next query after availability change. */
+	fun invalidateForeignProfile(profile: UserHandle) { if (Users.isForeignProfile(profile)) mIslandAppMap.remove(profile) }
+
+	/** Only launchable apps are visible in foreign profile, and they are never treated as frozen (not managed by Island). */
+	private fun refreshForeign(outApps: MutableMap<String, IslandAppInfo>, profile: UserHandle) {
+		getLaunchableAppsInForeignProfile(null, profile).forEach { info -> outApps[info.packageName] = IslandAppInfo(this, profile, info, null) }
+		Log.d(TAG, "Refreshed apps in foreign profile ${profile.toId()}")
+	}
+
+	private fun getLaunchableAppsInForeignProfile(pkg: String?, profile: UserHandle): List<ApplicationInfo>
+			= try { mLauncherApps.getActivityList(pkg, profile).map { it.applicationInfo }.distinctBy { it.packageName } }
+			catch (e: SecurityException) { emptyList<ApplicationInfo>().also { Log.w(TAG, "Error querying apps in profile ${profile.toId()}", e) }}
+
+	private fun refreshPackageInForeignProfile(pkg: String, profile: UserHandle) {
+		val appsInProfile = mIslandAppMap[profile] ?: return
+		val info = getLaunchableAppsInForeignProfile(pkg, profile).firstOrNull()
+				?: return Unit.also { appsInProfile.remove(pkg)?.also { notifyRemoval(setOf(it)) }}
+		val app = IslandAppInfo(this, profile, info, null)
+		appsInProfile[pkg] = app
+		notifyUpdate(setOf(app))
 	}
 
 	private fun LauncherApps.getAppInfo(pkg: String, flags: Int, user: UserHandle): ApplicationInfo?
@@ -123,6 +154,7 @@ class IslandAppListProvider : AppListProvider<IslandAppInfo>() {
 
 	fun refreshPackage(pkg: String, profile: UserHandle, add: Boolean) {
 		Log.d(TAG, "Update: " + pkg + if (add) " for pkg add" else " for pkg change")
+		if (Users.isForeignProfile(profile)) return refreshPackageInForeignProfile(pkg, profile)
 		val info = getApplicationInfo(pkg, profile)
 		val appsInProfile = mIslandAppMap[profile] ?: return
 		if (info == null) {
@@ -145,6 +177,7 @@ class IslandAppListProvider : AppListProvider<IslandAppInfo>() {
 	private val mCallback: LauncherApps.Callback = object : LauncherApps.Callback() {
 
 		override fun onPackageRemoved(pkg: String, profile: UserHandle) {
+			if (Users.isForeignProfile(profile)) return refreshPackageInForeignProfile(pkg, profile)
 			val appsInProfile = mIslandAppMap[profile] ?: return
 			val app = appsInProfile[pkg] ?: return Unit.also { Log.e(TAG, "Removed package not found in Island: $pkg") }
 			if (app.isHidden) return  // The removal callback is triggered by freezing.

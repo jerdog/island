@@ -6,10 +6,12 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.Build.VERSION_CODES.Q
 import android.os.UserHandle
 import android.util.Log
+import androidx.annotation.DrawableRes
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.SavedStateHandle
 import com.google.android.material.tabs.TabLayout
 import com.oasisfeng.island.analytics.analytics
+import com.oasisfeng.island.data.ForeignProfiles
 import com.oasisfeng.island.data.LiveProfileStates
 import com.oasisfeng.island.data.LiveProfileStates.ProfileState
 import com.oasisfeng.island.mobile.R
@@ -37,12 +39,23 @@ class MainViewModel(app: Application, state: SavedStateHandle): AppListViewModel
 			val tab = tabs.newTab().setTag(profile).setText(name)
 			mProfileStates.get(profile).observe(activity, { updateTabIconForProfileState(activity, tab, profile, it) })
 			tabs.addTab(tab,/* selected = */profile == currentProfile) }
+
+		// Profiles managed by others (e.g. work profile of MDM), apps inside can only be listed and launched.
+		for (profile in Users.getForeignProfiles()) {
+			val tab = tabs.newTab().setTag(profile).setText(ForeignProfiles.getDisplayName(activity, profile))
+			var lastState: ProfileState? = null
+			mProfileStates.get(profile).observe(activity, { state ->
+				updateTabIconForProfileState(activity, tab, profile, state, R.drawable.ic_work_black_24dp)
+				if (lastState != null && (lastState == ProfileState.UNAVAILABLE) != (state == ProfileState.UNAVAILABLE)) onForeignProfileStateChanged(profile)
+				lastState = state })
+			tabs.addTab(tab,/* selected = */profile == currentProfile) }
 	}
 }
 
-private fun updateTabIconForProfileState(context: Context, tab: TabLayout.Tab, profile: UserHandle, state: ProfileState) {
+private fun updateTabIconForProfileState(context: Context, tab: TabLayout.Tab, profile: UserHandle, state: ProfileState,
+                                         @DrawableRes iconRes: Int = R.drawable.ic_island_black_24dp) {
 	Log.d(TAG, "Update tab icon for profile ${profile.toId()}: $state")
-	val icon = context.getDrawable(R.drawable.ic_island_black_24dp)!!
+	val icon = context.getDrawable(iconRes)!!
 	icon.setTint(context.getColor(if (state == ProfileState.UNAVAILABLE) R.color.state_frozen else R.color.state_alive))
 	try { tab.icon = context.packageManager.getUserBadgedIcon(icon, profile) }
 	// (Mostly "vivo" devices before Android Q) "SecurityException: You need MANAGE_USERS permission to: check if specified user a managed profile outside your profile group"

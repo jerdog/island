@@ -6,6 +6,7 @@
     <string name="tab_mainland">Mainland</string>
     <string name="tab_island">Island</string>
     <string name="tab_discovery">Discovery</string>
+    <string name="tab_work_profile">Work</string>
     <string name="default_island_name">Island</string>
     <string name="default_islandN_name">Island %d</string>
     <string name="default_island0_name">Avalon</string>
@@ -22,6 +23,8 @@
     <string name="status_appendix_critical">critical</string>
     <string name="status_appendix_cloned">cloned</string>
     <string name="status_appendix_exclusive">only in Island</string>
+    <string name="status_appendix_managed_by">managed by %1$s</string>
+    <string name="status_appendix_managed_by_other">managed by other app</string>
 
     <string name="featured_button_setup">Setup</string>
     <string name="featured_file_shuttle_title">File Shuttle</string>
@@ -33,6 +36,10 @@
     <string name="featured_adb_secure_description">Restrict ADB (Android Debugging Bridge) shell from executing dangerous commands (install APK, change settings and etc.).\n\nIf Mainland is also managed by Island, this could protect the whole device (including data sniffing or sneaky app installation via USB cable from physically connected external device).</string>
     <string name="featured_managed_mainland_title">Extend the power to Mainland</string>
     <string name="featured_managed_mainland_description">Take control of ALL apps (in both Island and Mainland) and benefit from exclusive features. (more details in online guide)</string>
+    <string name="featured_setup_island_title">Setup Island alongside the work profile</string>
+    <string name="featured_setup_island_description">Apps in the existing work profile can be launched here. You may also setup Island for apps to clone and freeze.</string>
+    <string name="featured_setup_island_blocked_title">Island cannot be setup</string>
+    <string name="featured_setup_island_blocked_description">A work profile managed by other app already exists, and Android allows only one per device in most cases. Apps in the work profile can still be launched here, but cannot be cloned or frozen by Island.</string>
     <string name="featured_greenify_title">Greenify</string>
     <string name="featured_greenify_description">Automatically freeze selected apps if not in active use, after screen goes off.</string>
     <string name="featured_saf_enhancer_title">SAF Enhancer Lite</string>
@@ -51,6 +58,8 @@ the sandbox environment. Island never collect data related to your privacy, plea
     <string name="setup_error_managed_profile_not_supported">Sorry, the required feature \"Managed Profile\" is not supported on this device.</string>
     <string name="setup_error_provisioning_incomplete">Island setup is incomplete, the previous attempt might be unsuccessful.\n\nIf your device ROM or 3rd-party tool enforce auto-start control (or similar background-restriction functionality), please whitelist Island in related settings, then continue the setup.</string>
     <string name="setup_error_managed_device">Sorry, Island cannot be setup due to device currently being managed by <b>%1$s</b>.</string>
+    <string name="setup_error_existent_work_profile">Sorry, Island cannot be setup because a work profile managed by <b>%1$s</b> already exists. Android allows only one work profile in most cases.\n\nApps in that work profile can still be launched from Island.</string>
+    <string name="setup_error_existent_work_profile_unknown_owner">other app</string>
     <string name="setup_error_missing_managed_provisioning">Sorry, the required \"Android for Work\" feature may not be fully supported on your device.</string>
     <string name="setup_solution_for_cancelled_provision">Trouble setting-up Island?\n\nIf you got error message during the setup procedure of Island, please continue to open the online troubleshooting guide with suggested solutions.\n\nIf all the solutions do not work and your device is rooted, you can alternatively setup Island with root.</string>
 

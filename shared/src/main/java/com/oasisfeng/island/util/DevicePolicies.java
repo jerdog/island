@@ -60,6 +60,20 @@ public class DevicePolicies {
 		}
 	}
 
+	/** @return the label of the owner (receiver label, or app label as fallback), or null if not found */
+	public static @Nullable CharSequence getOwnerLabel(final Context context, final ComponentName owner) {
+		final PackageManager pm = context.getPackageManager();
+		try {
+			return pm.getReceiverInfo(owner, PackageManager.MATCH_UNINSTALLED_PACKAGES).loadLabel(pm);	// It should be a BroadcastReceiver
+		} catch (final PackageManager.NameNotFoundException e) {
+			try {
+				return pm.getApplicationInfo(owner.getPackageName(), PackageManager.MATCH_UNINSTALLED_PACKAGES).loadLabel(pm);    // If not, use app label
+			} catch (final PackageManager.NameNotFoundException ex) {
+				return null;
+			}
+		}
+	}
+
 	/** @return the profile owner component (may not be present), or null for failure */
 	private static @Nullable Optional<ComponentName> getProfileOwnerAsUser(final Context context, final int profile_id) {
 		if (Hacks.DevicePolicyManager_getProfileOwnerAsUser.isAbsent()) return null;
