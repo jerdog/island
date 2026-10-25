@@ -14,12 +14,9 @@ android {
     }
 }
 
+// Strip compile-time stubs of framework classes (src/main/java/android) from the compiled output
 android.libraryVariants.all { variant ->
-    String taskName = String.format("remove%sStubClasses", variant.name.capitalize())
-    task "${taskName}" {
-        doLast { delete "${buildDir}/intermediates/classes/${variant.name}" + "/android" }
-    }
-    variant.processJavaResources.dependsOn(taskName)
+    variant.javaCompileProvider.configure { task -> task.doLast { delete new File(task.destinationDir, 'android') } }
 }
 
 dependencies {
