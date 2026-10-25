@@ -39,6 +39,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.os.Build.VERSION_CODES.O_MR1;
 import static android.os.Build.VERSION_CODES.P;
+import static android.os.Build.VERSION_CODES.R;
 import static com.oasisfeng.island.appops.AppOpsCompat.GET_APP_OPS_STATS;
 
 /**
@@ -51,8 +52,9 @@ public class Hacks {
 	static {
 		Hack.setAssertionFailureHandler(e -> {
 			Log.e("Compatibility", e.getDebugInfo());
-			if (BuildConfig.DEBUG) throw new IllegalStateException("Incompatibility", e);
-			if (Users.isOwner()) Analytics.$().report(e);
+			// Fail fast in debug build only on Android versions these hacks were verified against, degrade gracefully (as release build) on newer ones.
+			if (BuildConfig.DEBUG && SDK_INT <= R) throw new IllegalStateException("Incompatibility", e);
+			if (! BuildConfig.DEBUG && Users.isOwner()) Analytics.$().report(e);
 		});
 	}
 
