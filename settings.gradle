@@ -1,3 +1,5 @@
 include 'shared', 'engine', 'mobile', 'fileprovider', 'installer', 'watcher', 'open'
 include 'assembly'
 include ':deagle'; project(':deagle').projectDir = new File(settingsDir, '../deagle/library')
+// "condom" is no longer available from any Maven repository since the shutdown of JCenter, build it from source if cloned alongside.
+if (new File(settingsDir, '../condom/library').exists()) { include ':condom'; project(':condom').projectDir = new File(settingsDir, '../condom/library') }

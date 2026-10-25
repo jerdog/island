@@ -8,11 +8,14 @@ Island is an Android Device Policy Controller (DPC) app: it acts as profile owne
 
 ## Build setup
 
-- **Required sibling checkout:** the [`deagle`](https://github.com/oasisfeng/deagle) library must be cloned next to this repo (`../deagle`). `settings.gradle` maps `:deagle` to `../deagle/library`; nothing builds without it.
-- Toolchain is old and pinned: Gradle 6.5 wrapper, Android Gradle Plugin 4.1.3, Kotlin 1.4.32, Java 8 source/target, `compileSdk 30`, `minSdk 24`. The `assembly` app uses `targetSdk 29` deliberately because `open` and `fileprovider` access private APIs.
-- Repositories still include `jcenter()`.
+- **Required sibling checkouts** (JCenter is gone, so these are built from source; see `settings.gradle`):
+  - [`deagle`](https://github.com/oasisfeng/deagle) at `../deagle`, mapped to `:deagle`. Nothing builds without it. Island's last code change (April 2021) matches deagle revision `d4767d5`; deagle `master` is older and `dev` has since moved to compileSdk 35.
+  - [`condom`](https://github.com/oasisfeng/condom) at tag `v2.5.0` in `../condom`, mapped to `:condom`. If absent, `shared` falls back to the Maven coordinate, which only resolves from an existing Gradle cache. Root `build.gradle` strips condom's `android/` framework stubs right after its Java compilation so they don't shadow the real SDK classes.
+- Repositories are `google()`, `mavenCentral()` and JitPack (limited to `com.github.Chainfire`, for `libsuperuser`).
+- Toolchain is old and pinned: Gradle 6.5 wrapper, Android Gradle Plugin 4.1.3, Kotlin 1.4.32, Java 8 source/target, `compileSdk 30`, `minSdk 24`. Run Gradle with **JDK 11** (Gradle 6.5 does not run on newer JDKs). The `assembly` app uses `targetSdk 29` deliberately because `open` and `fileprovider` access private APIs.
+- `gradlew` is not executable in the repo; run it as `sh ./gradlew`.
 - An optional, git-ignored `local.gradle` in the root is applied when present.
-- The `assembly` module applies Google Services/Crashlytics, so it needs a `google-services.json` that is not in the repo.
+- `assembly/google-services.json` (Firebase/Crashlytics config) is checked in.
 
 ## Commands
 
@@ -26,12 +29,12 @@ Island is an Android Device Policy Controller (DPC) app: it acts as profile owne
 | `fileprovider` | `com.oasisfeng.island.fileprovider` | `fileprovider` only |
 
 ```sh
-./gradlew :assembly:assembleCompleteDebug      # full app
-./gradlew :assembly:installEngineDebug         # engine only, installs over the complete build
-./gradlew :assembly:installMobileDebug         # UI module, installed side-by-side with engine
-./gradlew :assembly:lintCompleteDebug          # lint (only checks NewApi; aborts on error)
-./gradlew :engine:connectedAndroidTest         # instrumented tests (needs a device)
-./gradlew :engine:connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oasisfeng.island.api.ApiActivityTest
+sh ./gradlew :assembly:assembleCompleteDebug      # full app
+sh ./gradlew :assembly:installEngineDebug         # engine only, installs over the complete build
+sh ./gradlew :assembly:installMobileDebug         # UI module, installed side-by-side with engine
+sh ./gradlew :assembly:lintCompleteDebug          # lint (only checks NewApi; aborts on error)
+sh ./gradlew :engine:connectedAndroidTest         # instrumented tests (needs a device)
+sh ./gradlew :engine:connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oasisfeng.island.api.ApiActivityTest
 ```
 
 The only tests in the repo are the instrumented tests in `engine/src/androidTest`; there are no JVM unit tests. In `shared`, every `assemble` depends on the lint task, so a lint error in `shared` fails the build.

@@ -50,7 +50,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics:17.6.0'
     implementation 'com.google.firebase:firebase-config:19.2.0'
     implementation 'com.google.firebase:firebase-crashlytics:17.2.2'
-    implementation 'com.oasisfeng.condom:library:2.5.0'
+    implementation findProject(':condom') ?: 'com.oasisfeng.condom:library:2.5.0'
     implementation 'com.squareup.okhttp3:okhttp:3.12.1'
     implementation 'com.squareup.okhttp3:okhttp-urlconnection:3.10.0'
 

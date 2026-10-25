@@ -45,7 +45,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.2.1'
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'com.google.firebase:firebase-appindexing:19.1.0'        // FeatureActionActivity
-    implementation 'eu.chainfire:libsuperuser:1.0.0.201510071325'
+    implementation 'com.github.Chainfire:libsuperuser:1.1.1'
     implementation 'uk.co.samuelwall:material-tap-target-prompt:2.0.1'
 
     androidTestImplementation 'org.mockito:mockito-android:2.8.9'

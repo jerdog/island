@@ -5,7 +5,7 @@ buildscript {
     ext.kotlin_coroutine_version = '1.3.9'
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
@@ -23,9 +23,18 @@ if (file('local.gradle').exists()) apply from: 'local.gradle'
 allprojects {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
+        maven {     // For artifacts only published on JitPack since the shutdown of JCenter
+            url 'https://jitpack.io'
+            content { includeGroup 'com.github.Chainfire' }
+        }
     }
 
     ext.compileSdkVersion = 30
     ext.minSdkVersion = 24
 }
+
+// Stub classes of framework in "condom" must not leak into the classpath of dependents (built from source, see settings.gradle)
+if (findProject(':condom')) project(':condom') { afterEvaluate { android.libraryVariants.all { variant ->
+    variant.javaCompileProvider.configure { task -> task.doLast { delete new File(task.destinationDir, 'android') } }
+}}}
