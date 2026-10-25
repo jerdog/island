@@ -16,6 +16,7 @@ Island is an Android Device Policy Controller (DPC) app: it acts as profile owne
 - `gradlew` is not executable in the repo; run it as `sh ./gradlew`.
 - An optional, git-ignored `local.gradle` in the root is applied when present.
 - `assembly/google-services.json` (Firebase/Crashlytics config) is checked in.
+- CI: `.github/workflows/build.yml` sets up the same toolchain and sibling checkouts, builds and lints the `complete` debug variant, and uploads the debug APK as an artifact.
 
 ## Commands
 
